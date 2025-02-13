@@ -1,0 +1,4 @@
+google-genai
+flask
+flask_socketio
+flask_cors

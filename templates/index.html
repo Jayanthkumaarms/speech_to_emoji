@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Text to Emoji 🎭</title>
+    <script src="https://cdn.jsdelivr.net/npm/socket.io-client@4.7.2/dist/socket.io.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Bangers&display=swap');
+
+        /* Comic book-style background */
+        body {
+    font-family: 'Bangers', cursive;
+    background-color: #ffcc00;
+    background-image: url('https://png.pngtree.com/thumb_back/fh260/background/20240211/pngtree-comic-book-pop-art-clouds-style-template-vector-image_15625759.jpg'); /* Fixed URL */
+    background-size: cover; /* Ensures the image covers the entire background */
+    background-position: center; /* Centers the background */
+    background-repeat: no-repeat; /* Prevents tiling */
+    background-attachment: fixed; /* Keeps background in place */
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    overflow: hidden;
+}
+
+
+        .container {
+            width: 90%;
+            max-width: 500px;
+            background: rgba(255, 255, 255, 0.8); /* Semi-transparent background */
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 10px 10px 0px black;
+            text-align: center;
+            border: 5px solid black;
+            position: relative;
+        }
+
+        .container::after {
+            content: "BOOM!";
+            font-family: 'Bangers', cursive;
+            font-size: 40px;
+            color: red;
+            position: absolute;
+            top: -30px;
+            right: -20px;
+            transform: rotate(-10deg);
+            background: yellow;
+            padding: 5px 10px;
+            border: 2px solid black;
+        }
+
+        h1 {
+            color: #ff4757;
+            font-size: 32px;
+            text-shadow: 3px 3px black;
+            margin-bottom: 15px;
+        }
+
+        input, button, select {
+            width: 100%;
+            padding: 14px;
+            margin-top: 10px;
+            border-radius: 10px;
+            border: none;
+            font-size: 18px;
+            font-family: 'Bangers', cursive;
+            outline: none;
+            border: 3px solid black;
+        }
+
+        input {
+            background: #fff9c4;
+            color: black;
+        }
+
+        button {
+            cursor: pointer;
+            background: #ff4757;
+            color: white;
+            text-transform: uppercase;
+            font-weight: bold;
+            transition: 0.3s;
+            border: 3px solid black;
+            box-shadow: 4px 4px black;
+        }
+
+        button:hover {
+            background: #ff6b81;
+            transform: scale(1.1);
+        }
+
+        #emojiResponse {
+            margin-top: 20px;
+            font-size: 30px;
+            font-weight: bold;
+            color: black;
+            text-shadow: 2px 2px white;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.7); /* Semi-transparent response box */
+            display: inline-block;
+            border: 3px solid black;
+        }
+
+        #emojiResponse strong {
+            display: block;
+            font-size: 20px;
+            color: red;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>💥 Text to Emoji Converter 🔥</h1>
+        <input type="text" id="textInput" placeholder="Type something fun!">
+        
+        <select id="languageSelect">
+            <option value="en-US">English (US)</option>
+            <option value="es-ES">Español (Spain)</option>
+            <option value="fr-FR">Français (France)</option>
+            <option value="de-DE">Deutsch (Germany)</option>
+            <option value="zh-CN">中文 (Chinese)</option>
+            <option value="hi-IN">हिन्दी (Hindi)</option>
+            <option value="ar-SA">العربية (Arabic)</option>
+            <option value="ta-TA">Tamil</option>
+            <option value="ml-ML">Malayalam</option>
+            <option value="ja-JA">Japanese</option>
+        </select>
+
+        <button id="generateButton">💬 Generate Emojis</button>
+        <button id="voiceButton">🎤 Use Voice</button>
+        <div id="emojiResponse"></div>
+    </div>
+
+    <script>
+        const socket = io.connect('http://localhost:5000');
+
+        let isVoiceActive = false;
+        const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+        recognition.continuous = false;
+        recognition.interimResults = false;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = function() {
+            console.log("Voice recognition started.");
+            isVoiceActive = true;
+            document.getElementById('voiceButton').textContent = '🔴 Listening...';
+            document.getElementById('textInput').disabled = true;
+        };
+
+        recognition.onresult = function(event) {
+            const speechResult = event.results[0][0].transcript;
+            document.getElementById('textInput').value = speechResult;
+            isVoiceActive = false;
+            document.getElementById('voiceButton').textContent = '🎤 Use Voice';
+            document.getElementById('textInput').disabled = false;
+            generateEmoji();
+        };
+
+        recognition.onerror = function(event) {
+            console.log("Error occurred in speech recognition: " + event.error);
+            isVoiceActive = false;
+            document.getElementById('voiceButton').textContent = '🎤 Use Voice';
+            document.getElementById('textInput').disabled = false;
+        };
+
+        document.getElementById('languageSelect').addEventListener('change', function() {
+            recognition.lang = this.value;
+        });
+
+        document.getElementById('voiceButton').onclick = function() {
+            if (!isVoiceActive) {
+                recognition.start();
+            }
+        };
+
+        document.getElementById('generateButton').onclick = function() {
+            const text = document.getElementById('textInput').value.trim();
+            if (text === "") {
+                alert("Please enter some text.");
+                return;
+            }
+            socket.emit("generate_emoji", { text: text });
+        };
+
+        socket.on("emoji_response", function(data) {
+            const response = JSON.parse(data);
+            const emojiDiv = document.getElementById('emojiResponse');
+            if (response.emoji) {
+                emojiDiv.innerHTML = `<strong>Original Text:</strong> ${response.text}<br><strong>Emoji Response:</strong> ${response.emoji}`;
+            } else {
+                emojiDiv.innerHTML = `<strong>Error:</strong> ${response.text}`;
+            }
+        });
+
+        function generateEmoji() {
+            const text = document.getElementById('textInput').value.trim();
+            if (text === "") {
+                alert("Please enter some text.");
+                return;
+            }
+            socket.emit("generate_emoji", { text: text });
+        }
+    </script>
+
+</body>
+</html>
